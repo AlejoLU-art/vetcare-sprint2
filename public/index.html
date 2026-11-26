@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>VetCare - Sistema de Gestión Veterinaria (Sprint 2)</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #f4f7f9; margin: 0; padding: 20px; color: #333; }
+    header { background: #1e6091; color: white; padding: 15px 25px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .tabs { margin: 20px 0; display: flex; gap: 10px; }
+    .tab-btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; background: #d9e2ec; }
+    .tab-btn.active { background: #1e6091; color: white; }
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { padding: 12px; border-bottom: 1px solid #e1e8ed; text-align: left; }
+    th { background: #f0f4f8; }
+    .badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+    .agendada { background: #d1fae5; color: #065f46; }
+    .cancelada { background: #fee2e2; color: #991b1b; }
+    button.action { background: #0077b6; color: white; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; }
+    button.danger { background: #d90429; color: white; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    input, select, textarea { width: 100%; padding: 8px; margin: 6px 0 14px 0; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; }
+    .alert-error { background: #fee2e2; color: #991b1b; padding: 10px; border-radius: 5px; display: none; margin-bottom: 10px; }
+    .email-box { border: 2px dashed #1e6091; background: #f8fafc; padding: 15px; border-radius: 8px; margin-top: 15px; display: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h2 style="margin:0;">🐾 VetCare - Sistema de Gestión Veterinaria</h2>
+    <small>Sprint 2: Módulo Clínico, Cancelación Autónoma y Notificaciones</small>
+  </div>
+  <div>Proyecto: Universidad INCCA de Colombia</div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="mostrarVista('cliente', this)">👤 Portal del Cliente (HU-05, HU-07, HU-09)</button>
+  <button class="tab-btn" onclick="mostrarVista('vet', this)">🩺 Portal Veterinario (HU-06)</button>
+</div>
+
+<div id="vista-cliente">
+  <div class="card">
+    <h3>📋 HU-05: Historial Médico Básico</h3>
+    <label>Filtrar por mascota:</label>
+    <select id="filtroMascota" onchange="cargarHistorial()">
+      <option value="TODAS">Todas las mascotas</option>
+      <option value="Max (Golden Retriever)">Max (Golden Retriever)</option>
+      <option value="Luna (Gato Persa)">Luna (Gato Persa)</option>
+    </select>
+    <table>
+      <thead>
+        <tr><th>Fecha</th><th>Mascota</th><th>Motivo</th><th>Veterinario</th><th>Diagnóstico</th></tr>
+      </thead>
+      <tbody id="tablaHistorial"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>📅 HU-07: Próximas Citas y Cancelación Autónoma (Regla 12h)</h3>
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Mascota</th><th>Fecha y Hora</th><th>Anticipación</th><th>Estado</th><th>Acción</th></tr>
+      </thead>
+      <tbody id="tablaCitas"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>📧 HU-09: Agendar Cita y Notificación de Recordatorio SMTP</h3>
+    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+      <div>
+        <label>Mascota:</label>
+        <select id="nuevaMascota">
+          <option>Max (Golden Retriever)</option>
+          <option>Luna (Gato Persa)</option>
+        </select>
+      </div>
+      <div>
+        <label>Fecha y Hora:</label>
+        <input type="text" id="nuevaFecha" value="2026-11-30 03:30 PM">
+      </div>
+      <div>
+        <label>Correo del Cliente:</label>
+        <input type="email" id="nuevoCorreo" value="cliente.vetcare@ejemplo.com">
+      </div>
+    </div>
+    <button class="action" onclick="agendarCita()">Agendar Cita y Enviar Recordatorio</button>
+    <div id="emailPreview" class="email-box"></div>
+  </div>
+</div>
+
+<div id="vista-vet" style="display:none;">
+  <div class="card">
+    <h3>🩺 HU-06: Registro de Diagnósticos y Fórmulas Médicas</h3>
+    <div id="errorDiag" class="alert-error"></div>
+    <label>Cita Asociada (ID):</label>
+    <input type="text" id="citaId" value="CITA-104 (Max - Control General)" readonly>
+    <label>Veterinario Tratante:</label>
+    <input type="text" id="vetNombre" value="Dra. Camila Rojas">
+    <label>Diagnóstico Clínico (Obligatorio *):</label>
+    <textarea id="diagnostico" rows="3" placeholder="Ingrese el diagnóstico del paciente..."></textarea>
+    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+      <div><label>Medicamento:</label><input type="text" id="medicamento" value="Meloxicam 1.5mg"></div>
+      <div><label>Dosis:</label><input type="text" id="dosis" value="1 tableta cada 24h"></div>
+      <div><label>Duración:</label><input type="text" id="duracion" value="5 días"></div>
+    </div>
+    <button class="action" onclick="guardarDiagnostico()">Guardar Diagnóstico y Fórmula</button>
+    <pre id="respuestaApi" style="background:#1e293b; color:#38bdf8; padding:12px; border-radius:6px; margin-top:15px; display:none;"></pre>
+  </div>
+</div>
+
+<script>
+  function mostrarVista(vista, btn) {
+    document.getElementById('vista-cliente').style.display = vista === 'cliente' ? 'block' : 'none';
+    document.getElementById('vista-vet').style.display = vista === 'vet' ? 'block' : 'none';
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  async function cargarHistorial() {
+    const mascota = document.getElementById('filtroMascota').value;
+    const res = await fetch(`/api/historial?mascota=${encodeURIComponent(mascota)}`);
+    const data = await res.json();
+    document.getElementById('tablaHistorial').innerHTML = data.map(h => `
+      <tr>
+        <td>${h.fecha}</td><td>${h.mascota}</td><td>${h.motivo}</td><td>${h.veterinario}</td><td>${h.diagnostico}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function cargarCitas() {
+    const res = await fetch('/api/citas');
+    const data = await res.json();
+    document.getElementById('tablaCitas').innerHTML = data.map(c => {
+      const puedeCancelar = c.estado === 'Agendada' && c.horas_restantes >= 12;
+      return `
+        <tr>
+          <td>#${c.id}</td>
+          <td>${c.mascota}</td>
+          <td>${c.fecha_hora}</td>
+          <td>${c.horas_restantes} horas</td>
+          <td><span class="badge ${c.estado.toLowerCase()}">${c.estado}</span></td>
+          <td>
+            ${c.estado === 'Cancelada' ? '—' : 
+              `<button class="danger" ${!puedeCancelar ? 'disabled title="Menos de 12h de anticipación"' : ''} onclick="cancelarCita(${c.id})">
+                ${puedeCancelar ? 'Cancelar Cita' : 'Bloqueado (<12h)'}
+              </button>`}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  async function cancelarCita(id) {
+    const res = await fetch(`/api/citas/${id}/cancelar`, { method: 'PATCH' });
+    if (res.ok) {
+      alert('Cita cancelada exitosamente en la base de datos.');
+      cargarCitas();
+    }
+  }
+
+  async function agendarCita() {
+    const body = {
+      mascota: document.getElementById('nuevaMascota').value,
+      fecha_hora: document.getElementById('nuevaFecha').value,
+      correo: document.getElementById('nuevoCorreo').value
+    };
+    const res = await fetch('/api/citas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    const box = document.getElementById('emailPreview');
+    box.style.display = 'block';
+    box.innerHTML = `
+      <strong>📨 Vista Previa del Correo Enviado (SMTP):</strong><br>
+      <b>Para:</b> ${data.correo_preview.para}<br>
+      <b>Asunto:</b> ${data.correo_preview.asunto}<br>
+      <b>Fecha y Hora:</b> ${data.correo_preview.fecha_hora}<br>
+      <b>Recomendaciones:</b> ${data.correo_preview.recomendaciones}
+    `;
+    cargarCitas();
+  }
+
+  async function guardarDiagnostico() {
+    const errorBox = document.getElementById('errorDiag');
+    const apiBox = document.getElementById('respuestaApi');
+    errorBox.style.display = 'none';
+    apiBox.style.display = 'none';
+
+    const body = {
+      cita_id: 104,
+      mascota: 'Max (Golden Retriever)',
+      motivo: 'Consulta clínica',
+      veterinario: document.getElementById('vetNombre').value,
+      diagnostico: document.getElementById('diagnostico').value,
+      medicamento: document.getElementById('medicamento').value,
+      dosis: document.getElementById('dosis').value,
+      duracion: document.getElementById('duracion').value
+    };
+
+    const res = await fetch('/api/diagnosticos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      errorBox.style.display = 'block';
+      errorBox.innerText = '⚠️ Error de validación: ' + data.error;
+    } else {
+      apiBox.style.display = 'block';
+      apiBox.innerText = JSON.stringify(data, null, 2);
+      cargarHistorial();
+    }
+  }
+
+  cargarHistorial();
+  cargarCitas();
+</script>
+</body>
+</html>
+
+git init
+git config user.name "Alejandro Lugo"
+git config user.email "lalugou@unincca.edu.co"
+git branch -M main
+
+git add package.json server.js
+git commit -m "feat(hu-05-hu-07): estructura backend, BD y endpoints historial y cancelacion"
+
+git add public/index.html
+git commit -m "feat(hu-06-hu-09): interfaz clinica, validacion diagnosticos y cola SMTP"
+
+git remote add origin https://github.com
+git push -u origin main
